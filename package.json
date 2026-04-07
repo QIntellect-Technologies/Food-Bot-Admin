@@ -14,7 +14,7 @@
     "dev:admin": "vite",
     "dev:public": "npm run dev --workspace=public-menu",
     "dev:server": "node server/server.js",
-    "build": "npm run build --workspaces && vite build",
+    "build": "npm install --include=dev && npm run build --workspaces && vite build",
     "start": "node server/server.js"
   },
   "dependencies": {
