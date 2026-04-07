@@ -63,15 +63,35 @@ app.post('/webhook', async (req, res) => {
         ) {
             const value = body.entry[0].changes[0].value;
 
-            // Handle Asynchronous Delivery Statuses (Failures)
+            // Handle Asynchronous Delivery Statuses (Read/Delivered/Failed)
             if (value.statuses && Array.isArray(value.statuses)) {
                 const status = value.statuses[0];
-                if (status.status === 'failed') {
+                const msgId = status.id;
+                const statusType = status.status; // 'delivered', 'read', 'failed'
+
+                console.log(`✔️ Message status update: ${statusType} for ${status.recipient_id} (ID: ${msgId})`);
+
+                // If message is 'read' or 'delivered', we update campaign stats
+                if (statusType === 'read' || statusType === 'delivered') {
+                    try {
+                        const { data: mapping } = await supabase.from('campaign_message_logs').select('campaign_id').eq('message_id', msgId).single();
+                        if (mapping) {
+                            const column = statusType === 'read' ? 'read_count' : 'delivered_count';
+                            // Using a simple update for now, ideally an RPC for atomicity
+                            const { data: campaign } = await supabase.from('campaign_analytics').select(column).eq('id', mapping.campaign_id).single();
+                            if (campaign) {
+                                await supabase.from('campaign_analytics').update({ [column]: (campaign[column] || 0) + 1 }).eq('id', mapping.campaign_id);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`❌ Failed to update ${statusType} status:`, err.message);
+                    }
+                }
+
+                if (statusType === 'failed') {
                     console.error('⚠️ WHATSAPP DELIVERY FAILED asynchronously!');
                     console.error('Recipient:', status.recipient_id);
                     console.error('Error Details:', JSON.stringify(status.errors));
-                } else {
-                    console.log(`✔️ Message status update: ${status.status} for ${status.recipient_id}`);
                 }
                 return res.sendStatus(200);
             }
@@ -366,18 +386,34 @@ app.post('/api/send-receipt', async (req, res) => {
 
 // Promotional Campaign API
 app.post('/api/send-campaign', async (req, res) => {
-    const { audience, message, type, branchId } = req.body;
+    const { audience, message, type, branchId, campaignName } = req.body;
 
     if (!message || !audience) {
         return res.status(400).send('Missing campaign data');
     }
 
-    console.log(`📣 BROADCAST START: Target=${audience}, Channel=${type}`);
+    console.log(`📣 BROADCAST START: Name=${campaignName || 'Unnamed'}, Target=${audience}`);
 
     try {
+        // 1. Create Campaign Analytics Entry
+        const { data: campaign, error: campErr } = await supabase.from('campaign_analytics').insert({
+            name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
+            audience: audience,
+            message: message,
+            branch_id: branchId,
+            status: 'Active',
+            sent_count: 0,
+            delivered_count: 0,
+            read_count: 0,
+            click_count: 0,
+            respond_count: 0
+        }).select().single();
+
+        if (campErr) throw campErr;
+
         let targets = [];
 
-        // 1. Resolve Audience to Phone Numbers
+        // Resolve Audience to Phone Numbers
         if (audience === 'ALL_USERS') {
             const { data } = await supabase.from('profiles').select('phone').eq('role', 'customer');
             targets = data || [];
@@ -399,33 +435,63 @@ app.post('/api/send-campaign', async (req, res) => {
         const phoneNumbers = [...new Set(targets.map(t => t.phone).filter(p => !!p))];
         console.log(`👥 Found ${phoneNumbers.length} unique target(s)`);
 
-        // 2. Send WhatsApp Messages (Meta API)
+        // Update sent count
+        await supabase.from('campaign_analytics').update({ sent_count: phoneNumbers.length }).eq('id', campaign.id);
+
+        // 2. Prepare tracking link (Local shortcut)
+        const trackingUrl = `https://${req.get('host')}/api/c/${campaign.id}`;
+        const finalMessage = `${message}\n\n👉 Order Now: ${trackingUrl}`;
+
+        // 3. Send WhatsApp Messages (Meta API)
         const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-        // Use a loop with small delay to avoid rate limits (simplified)
         for (const phone of phoneNumbers) {
             try {
-                await axios.post(url, {
+                const response = await axios.post(url, {
                     messaging_product: 'whatsapp',
                     to: phone,
                     type: 'text',
-                    text: { body: message }
+                    text: { body: finalMessage }
                 }, { headers: { 'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' } });
 
-                console.log(`✅ Campaign msg sent to ${phone}`);
-                // Basic throttle
+                const messageId = response.data.messages[0].id;
+
+                // Log message ID for tracking
+                await supabase.from('campaign_message_logs').insert({
+                    campaign_id: campaign.id,
+                    message_id: messageId,
+                    recipient: phone
+                });
+
+                console.log(`✅ Campaign msg sent to ${phone} (ID: ${messageId})`);
                 await new Promise(resolve => setTimeout(resolve, 200));
             } catch (err) {
                 console.error(`❌ Failed to send to ${phone}:`, err.response?.data || err.message);
             }
         }
 
-        res.status(200).send({ success: true, count: phoneNumbers.length });
+        res.status(200).send({ success: true, count: phoneNumbers.length, campaignId: campaign.id });
     } catch (error) {
         console.error('❌ Campaign broadcast failed:', error);
         res.status(500).send('Broadcast failed');
     }
 });
+
+// Campaign Click Tracking Redirect
+app.get('/api/c/:campaignId', async (req, res) => {
+    const { campaignId } = req.params;
+    try {
+        const { data: campaign } = await supabase.from('campaign_analytics').select('click_count').eq('id', campaignId).single();
+        if (campaign) {
+            await supabase.from('campaign_analytics').update({ click_count: (campaign.click_count || 0) + 1 }).eq('id', campaignId);
+        }
+    } catch (err) {
+        console.error('❌ Click tracking failed:', err.message);
+    }
+    // Redirect to public menu
+    res.redirect('/');
+});
+
 app.get('/config.js', (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
     res.send(`window.ENV = { VITE_SUPABASE_URL: "${process.env.VITE_SUPABASE_URL || ''}", VITE_SUPABASE_ANON_KEY: "${process.env.VITE_SUPABASE_ANON_KEY || ''}" };`);

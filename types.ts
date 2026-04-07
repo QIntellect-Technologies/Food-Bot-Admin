@@ -225,6 +225,7 @@ export interface KitchenItem {
   startedAt?: string;
   completedAt?: string;
   price?: number; // Optional price for history
+  notes?: string; // Special instructions for kitchen
 }
 
 export interface LiveOrder {

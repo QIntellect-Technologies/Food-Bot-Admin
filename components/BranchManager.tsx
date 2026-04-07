@@ -259,6 +259,9 @@ const BranchManager: React.FC<BranchManagerProps> = ({
     const [customerFilter, setCustomerFilter] = useState<'all' | 'inactive_5' | 'inactive_10' | 'inactive_20' | 'inactive_30' | 'inactive_45' | 'inactive_60' | 'inactive_90' | 'custom'>('all');
     const [customerInactivityRange, setCustomerInactivityRange] = useState({ start: '', end: '' });
     const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+    const [customerSubTab, setCustomerSubTab] = useState<'USERS' | 'CAMPAIGNS'>('USERS');
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
 
     // Compute categories dynamically from menu
     const categories = useMemo(() => {
@@ -294,6 +297,32 @@ const BranchManager: React.FC<BranchManagerProps> = ({
         console.log('✅ Final subcategories:', uniqueSubs);
         return uniqueSubs;
     }, [selectedBranchId, branchesList, selectedCategory]);
+
+    // --- Campaign Data Fetching ---
+    useEffect(() => {
+        if (activeTab === 'CUSTOMERS' && customerSubTab === 'CAMPAIGNS') {
+            fetchCampaigns();
+        }
+    }, [activeTab, customerSubTab, selectedBranchId]);
+
+    const fetchCampaigns = async () => {
+        if (!selectedBranchId) return;
+        setIsLoadingCampaigns(true);
+        try {
+            const { data, error } = await supabase
+                .from('campaign_analytics')
+                .select('*')
+                .eq('branch_id', selectedBranchId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setCampaigns(data || []);
+        } catch (err) {
+            console.error('Error fetching campaigns:', err);
+        } finally {
+            setIsLoadingCampaigns(false);
+        }
+    };
 
     // Compute filtered menu
     const filteredMenu = useMemo(() => {
@@ -2469,253 +2498,342 @@ const BranchManager: React.FC<BranchManagerProps> = ({
                                     <div className="flex flex-col">
                                         <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-3 font-display">
                                             <Users className="w-6 h-6 text-primary" />
-                                            Registered Users
+                                            {customerSubTab === 'USERS' ? 'Registered Users' : 'Campaign Insights'}
                                         </h3>
-                                        <div className="flex items-center gap-4 mt-1.5 pl-9">
-                                            <div className="flex items-center gap-1.5 bg-slate-100/80 px-2 py-1 rounded-lg border border-slate-200/50">
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Members:</span>
-                                                <span className="text-[10px] font-black text-slate-700">{filteredStats.count}</span>
+                                        {customerSubTab === 'USERS' && (
+                                            <div className="flex items-center gap-4 mt-1.5 pl-9">
+                                                <div className="flex items-center gap-1.5 bg-slate-100/80 px-2 py-1 rounded-lg border border-slate-200/50">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Members:</span>
+                                                    <span className="text-[10px] font-black text-slate-700">{filteredStats.count}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100/50">
+                                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Spent:</span>
+                                                    <span className="text-[10px] font-black text-blue-700">SAR {filteredStats.totalSpent.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 bg-emerald-50/80 px-2 py-1 rounded-lg border border-emerald-100/50">
+                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Orders:</span>
+                                                    <span className="text-[10px] font-black text-emerald-700">{filteredStats.totalOrders}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5 bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100/50">
-                                                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Spent:</span>
-                                                <span className="text-[10px] font-black text-blue-700">SAR {filteredStats.totalSpent.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 bg-emerald-50/80 px-2 py-1 rounded-lg border border-emerald-100/50">
-                                                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Orders:</span>
-                                                <span className="text-[10px] font-black text-emerald-700">{filteredStats.totalOrders}</span>
-                                            </div>
-                                        </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
+                                        <button
+                                            onClick={() => setCustomerSubTab('USERS')}
+                                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${customerSubTab === 'USERS' ? 'bg-white text-primary shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            User Database
+                                        </button>
+                                        <button
+                                            onClick={() => setCustomerSubTab('CAMPAIGNS')}
+                                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${customerSubTab === 'CAMPAIGNS' ? 'bg-white text-primary shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            Campaign Tracking
+                                        </button>
                                     </div>
 
                                     <div className="flex items-center gap-3 w-full md:w-auto">
-                                        {/* Filter Dropdown */}
-                                        <div className="relative z-20">
-                                            <button
-                                                onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                                                className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 text-slate-600 font-bold text-sm transition-all shadow-sm"
-                                            >
-                                                <SlidersHorizontal className="w-4 h-4" />
-                                                <span className="hidden sm:inline">
-                                                    {customerSort === 'newest' ? 'Newest' :
-                                                        customerSort === 'oldest' ? 'Oldest' :
-                                                            customerSort === 'spent_high' ? 'Highest Spenders' : 'Most Orders'}
-                                                </span>
-                                                <ChevronDown className="w-3.5 h-3.5" />
-                                            </button>
-                                            {isSortDropdownOpen && (
-                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-pop p-1.5">
-                                                    {[
-                                                        { id: 'newest', label: 'Newest First' },
-                                                        { id: 'oldest', label: 'Oldest First' },
-                                                        { id: 'spent_high', label: 'Highest Spenders' },
-                                                        { id: 'orders_high', label: 'Most Orders' }
-                                                    ].map(opt => (
-                                                        <button
-                                                            key={opt.id}
-                                                            onClick={() => { setCustomerSort(opt.id as any); setIsSortDropdownOpen(false); }}
-                                                            className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${customerSort === opt.id ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
-                                                        >
-                                                            {opt.label}
-                                                        </button>
-                                                    ))}
+                                        {customerSubTab === 'USERS' ? (
+                                            <>
+                                                {/* Filter Dropdown */}
+                                                <div className="relative z-20">
+                                                    <button
+                                                        onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                                                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                                                    >
+                                                        <Filter className="w-3.5 h-3.5 text-primary" />
+                                                        <span className="hidden sm:inline">
+                                                            {customerFilter === 'all' ? 'All Users' :
+                                                                customerFilter === 'inactive_5' ? 'Inactive (5d)' :
+                                                                    customerFilter === 'inactive_10' ? 'Inactive (10d)' :
+                                                                        customerFilter === 'inactive_20' ? 'Inactive (20d)' :
+                                                                            customerFilter === 'inactive_30' ? 'Inactive (30d)' :
+                                                                                customerFilter === 'inactive_45' ? 'Inactive (45d)' :
+                                                                                    customerFilter === 'inactive_60' ? 'Inactive (60d)' :
+                                                                                        customerFilter === 'inactive_90' ? 'Inactive (90d)' :
+                                                                                            customerFilter === 'custom' ? 'Custom Range' : 'Custom'}
+                                                        </span>
+                                                        <ChevronDown className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    {isSortDropdownOpen && (
+                                                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-pop p-1.5 z-[70]">
+                                                            {[
+                                                                { id: 'all', label: 'All Users' },
+                                                                { id: 'inactive_5', label: 'Inactive > 5 Days' },
+                                                                { id: 'inactive_10', label: 'Inactive > 10 Days' },
+                                                                { id: 'inactive_20', label: 'Inactive > 20 Days' },
+                                                                { id: 'inactive_30', label: 'Inactive > 30 Days' },
+                                                                { id: 'inactive_45', label: 'Inactive > 45 Days' },
+                                                                { id: 'inactive_60', label: 'Inactive > 60 Days' },
+                                                                { id: 'inactive_90', label: 'Inactive > 90 Days' },
+                                                                { id: 'custom', label: 'Custom Range' }
+                                                            ].map(opt => (
+                                                                <button
+                                                                    key={opt.id}
+                                                                    onClick={() => { setCustomerFilter(opt.id as any); setIsSortDropdownOpen(false); }}
+                                                                    className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${customerFilter === opt.id ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50'}`}
+                                                                >
+                                                                    {opt.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* Inactivity Filter */}
-                                        <div className="relative z-10">
-                                            <button
-                                                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                                                className={`flex items-center gap-2 px-5 py-3 ${customerFilter !== 'all' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-white text-slate-600 border-slate-200'} border rounded-2xl hover:bg-slate-50 font-bold text-sm transition-all shadow-sm`}
-                                            >
-                                                <Filter className="w-4 h-4" />
-                                                <span className="hidden sm:inline">
-                                                    {customerFilter === 'all' ? 'All Users' :
-                                                        customerFilter === 'inactive_5' ? 'Inactive (5d)' :
-                                                            customerFilter === 'inactive_10' ? 'Inactive (10d)' :
-                                                                customerFilter === 'inactive_20' ? 'Inactive (20d)' :
-                                                                    customerFilter === 'inactive_30' ? 'Inactive (30d)' :
-                                                                        customerFilter === 'inactive_45' ? 'Inactive (45d)' :
-                                                                            customerFilter === 'inactive_60' ? 'Inactive (60d)' :
-                                                                                customerFilter === 'inactive_90' ? 'Inactive (90d)' :
-                                                                                    customerFilter === 'custom' ? 'Custom Range' : 'Custom'}
-                                                </span>
-                                                <ChevronDown className="w-3.5 h-3.5" />
-                                            </button>
-                                            {isFilterDropdownOpen && (
-                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-pop p-1.5 max-h-[300px] overflow-y-auto custom-scrollbar z-[70]">
-                                                    {[
-                                                        { id: 'all', label: 'All Users' },
-                                                        { id: 'inactive_5', label: 'Inactive > 5 Days' },
-                                                        { id: 'inactive_10', label: 'Inactive > 10 Days' },
-                                                        { id: 'inactive_20', label: 'Inactive > 20 Days' },
-                                                        { id: 'inactive_30', label: 'Inactive > 30 Days' },
-                                                        { id: 'inactive_45', label: 'Inactive > 45 Days' },
-                                                        { id: 'inactive_60', label: 'Inactive > 60 Days' },
-                                                        { id: 'inactive_90', label: 'Inactive > 90 Days' },
-                                                        { id: 'custom', label: 'Custom Range' }
-                                                    ].map(opt => (
-                                                        <button
-                                                            key={opt.id}
-                                                            onClick={() => { setCustomerFilter(opt.id as any); setIsFilterDropdownOpen(false); }}
-                                                            className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${customerFilter === opt.id ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50'}`}
-                                                        >
-                                                            {opt.label}
-                                                        </button>
-                                                    ))}
+                                                {customerFilter === 'custom' && (
+                                                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm animate-pop">
+                                                        <input
+                                                            type="date"
+                                                            value={customerInactivityRange.start}
+                                                            onChange={(e) => setCustomerInactivityRange({ ...customerInactivityRange, start: e.target.value })}
+                                                            className="text-xs font-bold p-1 border-none bg-transparent outline-none cursor-pointer text-slate-600"
+                                                        />
+                                                        <span className="text-slate-300 font-bold text-xs">to</span>
+                                                        <input
+                                                            type="date"
+                                                            value={customerInactivityRange.end}
+                                                            onChange={(e) => setCustomerInactivityRange({ ...customerInactivityRange, end: e.target.value })}
+                                                            className="text-xs font-bold p-1 border-none bg-transparent outline-none cursor-pointer text-slate-600"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    onClick={() => ReportsService.generateCustomerExport(filteredCustomers, `Customers_${selectedBranch?.name || 'All'}_${new Date().toISOString().split('T')[0]}`)}
+                                                    className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20 font-bold text-sm whitespace-nowrap"
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                    <span className="hidden md:inline">Export Excel</span>
+                                                </button>
+
+                                                <div className="relative w-full sm:w-72">
+                                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                                                    <input type="text" placeholder="Search users..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full pl-12 pr-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium" />
                                                 </div>
-                                            )}
-                                        </div>
-
-                                        {customerFilter === 'custom' && (
-                                            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm animate-pop">
-                                                <input
-                                                    type="date"
-                                                    value={customerInactivityRange.start}
-                                                    onChange={(e) => setCustomerInactivityRange({ ...customerInactivityRange, start: e.target.value })}
-                                                    className="text-xs font-bold p-1 border-none bg-transparent outline-none cursor-pointer text-slate-600"
-                                                />
-                                                <span className="text-slate-300 font-bold text-xs">to</span>
-                                                <input
-                                                    type="date"
-                                                    value={customerInactivityRange.end}
-                                                    onChange={(e) => setCustomerInactivityRange({ ...customerInactivityRange, end: e.target.value })}
-                                                    className="text-xs font-bold p-1 border-none bg-transparent outline-none cursor-pointer text-slate-600"
-                                                />
-                                            </div>
+                                            </>
+                                        ) : (
+                                            <button
+                                                onClick={fetchCampaigns}
+                                                className="flex items-center gap-2 px-5 py-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors border border-blue-100 font-bold text-sm whitespace-nowrap"
+                                            >
+                                                <RefreshCcw className={`w-4 h-4 ${isLoadingCampaigns ? 'animate-spin' : ''}`} />
+                                                Refresh Data
+                                            </button>
                                         )}
-
-                                        {/* Export Button */}
-                                        <button
-                                            onClick={() => ReportsService.generateCustomerExport(filteredCustomers, `Customers_${selectedBranch?.name || 'All'}_${new Date().toISOString().split('T')[0]}`)}
-                                            className="flex items-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20 font-bold text-sm whitespace-nowrap"
-                                        >
-                                            <Download className="w-4 h-4" />
-                                            <span className="hidden md:inline">Export Excel</span>
-                                        </button>
-
-                                        {/* Search */}
-                                        <div className="relative w-full sm:w-72">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                                            <input type="text" placeholder="Search users..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full pl-12 pr-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium" />
-                                        </div>
                                     </div>
                                 </div>
 
-                                {/* MODERN GRID TABLE: CUSTOMERS */}
-                                <div className="p-8 bg-slate-50/30 relative z-10 max-h-[calc(100vh-420px)] overflow-y-auto custom-scrollbar scroll-smooth">
-                                    {/* Grid Header - Glass Effect */}
-                                    <div className="hidden lg:grid grid-cols-12 gap-6 px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest bg-white/90 rounded-2xl border border-slate-200/60 mb-4 backdrop-blur-md sticky top-0 z-30 shadow-sm">
-                                        <div className="col-span-3">User Profile</div>
-                                        <div className="col-span-3">Contact Info</div>
-                                        <div className="col-span-2">Join Date</div>
-                                        <div className="col-span-1 text-center">Orders</div>
-                                        <div className="col-span-1 text-center">Spent</div>
-                                        <div className="col-span-2 text-right">Actions</div>
-                                    </div>
+                                <div className="max-h-[calc(100vh-350px)] overflow-y-auto custom-scrollbar relative">
+                                    {customerSubTab === 'USERS' ? (
+                                        <div className="p-8 bg-slate-50/30 relative z-10 scroll-smooth">
+                                            {/* Grid Header - Glass Effect */}
+                                            <div className="hidden lg:grid grid-cols-12 gap-6 px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest bg-white/90 rounded-2xl border border-slate-200/60 mb-4 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+                                                <div className="col-span-3">User Profile</div>
+                                                <div className="col-span-3">Contact Info</div>
+                                                <div className="col-span-2">Join Date</div>
+                                                <div className="col-span-1 text-center">Orders</div>
+                                                <div className="col-span-1 text-center">Spent</div>
+                                                <div className="col-span-2 text-right">Actions</div>
+                                            </div>
 
-                                    {/* Grid Rows - Glass Cards */}
-                                    <div className="space-y-3">
-                                        {filteredCustomers.map((customer, index) => (
-                                            <div
-                                                key={customer.id}
-                                                className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center px-6 py-5 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm border border-white/50 hover:shadow-lg hover:shadow-slate-200/50 hover:bg-white/80 hover:border-blue-200 transition-all duration-500 group animate-fade-in-up"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                {/* Profile */}
-                                                <div className="col-span-1 lg:col-span-3 flex items-center gap-4">
-                                                    <div className="relative shrink-0">
-                                                        <img src={customer.avatar} alt={customer.name} className="w-12 h-12 rounded-2xl border-2 border-white shadow-md group-hover:scale-110 transition-transform" />
-                                                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm"></div>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-extrabold text-slate-800 font-display">{customer.name}</p>
-                                                        <p className="text-[10px] font-mono text-slate-400 mt-1 bg-slate-50/50 px-2 py-0.5 rounded-md inline-block border border-slate-100">{customer.id}</p>
-                                                    </div>
-                                                </div>
-
-                                                {/* Contact */}
-                                                <div className="col-span-1 lg:col-span-3">
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-50/50 px-3 py-1 rounded-lg border border-slate-100 w-fit">
-                                                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                                            {customer.email}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 px-1">
-                                                            <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                                            {customer.phone}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Interaction Tracking */}
-                                                <div className="col-span-1 lg:col-span-2">
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                                                            <Calendar className="w-4 h-4 text-slate-300" />
-                                                            {customer.joinDate}
-                                                        </div>
-                                                        {customer.lastInteraction && (
-                                                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 w-fit">
-                                                                <Clock className="w-3 h-3" />
-                                                                Vis: {new Date(customer.lastInteraction).toLocaleDateString()}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Orders (Separate Column) */}
-                                                <div className="col-span-1 lg:col-span-1 flex justify-center">
-                                                    <div className="flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100 rounded-xl w-14 h-12 flex-col shadow-sm group-hover:bg-blue-500 group-hover:text-white group-hover:border-blue-500 transition-colors">
-                                                        <span className="text-lg font-black">{customer.totalOrders}</span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Spent (Separate Column) */}
-                                                <div className="col-span-1 lg:col-span-1 flex justify-center">
-                                                    <div className="flex items-center justify-center bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl w-full h-12 shadow-sm px-2 group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-colors">
-                                                        <span className="text-xs font-bold mr-0.5">SAR</span>
-                                                        <span className="text-sm font-black">{customer.totalSpent.toFixed(0)}</span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="col-span-1 lg:col-span-2 flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                                                    <button
-                                                        onClick={() => setSelectedCustomer(customer)}
-                                                        className="p-2.5 text-emerald-600 hover:text-white hover:bg-emerald-500 rounded-xl transition-all bg-emerald-50 border border-emerald-100 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 group/history"
-                                                        title="View Order History ($)"
+                                            {/* Grid Rows - Glass Cards */}
+                                            <div className="space-y-3">
+                                                {filteredCustomers.map((customer, index) => (
+                                                    <div
+                                                        key={customer.id}
+                                                        className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center px-6 py-5 bg-white/60 backdrop-blur-sm rounded-2xl shadow-sm border border-white/50 hover:shadow-lg hover:shadow-slate-200/50 hover:bg-white/80 hover:border-blue-200 transition-all duration-500 group animate-fade-in-up"
+                                                        style={{ animationDelay: `${index * 50}ms` }}
                                                     >
-                                                        <DollarSign className="w-4 h-4 group-hover/history:scale-125 transition-transform" />
-                                                    </button>
-                                                    <button onClick={() => openEditCustomer(customer)} className="p-2.5 text-slate-500 hover:text-white hover:bg-orange-500 rounded-xl transition-all bg-white border border-slate-100 hover:border-orange-500 hover:shadow-lg hover:shadow-orange-500/20" title="Edit User">
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDeleteCustomer(customer.id)} className="p-2.5 text-slate-500 hover:text-white hover:bg-red-500 rounded-xl transition-all bg-white border border-slate-100 hover:border-red-500 hover:shadow-lg hover:shadow-red-500/20" title="Delete User">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                        {/* Profile */}
+                                                        <div className="col-span-1 lg:col-span-3 flex items-center gap-4">
+                                                            <div className="relative shrink-0">
+                                                                <img src={customer.avatar} alt={customer.name} className="w-12 h-12 rounded-2xl border-2 border-white shadow-md group-hover:scale-110 transition-transform" />
+                                                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm"></div>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-extrabold text-slate-800 font-display">{customer.name}</p>
+                                                                <p className="text-[10px] font-mono text-slate-400 mt-1 bg-slate-50/50 px-2 py-0.5 rounded-md inline-block border border-slate-100">{customer.id}</p>
+                                                            </div>
+                                                        </div>
 
-                                        {filteredCustomers.length === 0 && (
-                                            <div className="p-16 text-center">
-                                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200 border-dashed">
-                                                    <Search className="w-6 h-6 text-slate-300" />
-                                                </div>
-                                                <p className="text-slate-500 font-medium">No users found matching your search.</p>
+                                                        {/* Contact */}
+                                                        <div className="col-span-1 lg:col-span-3">
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-50/50 px-3 py-1 rounded-lg border border-slate-100 w-fit">
+                                                                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                                                    {customer.email}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 text-xs font-medium text-slate-500 px-1">
+                                                                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                                                    {customer.phone}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Interaction Tracking */}
+                                                        <div className="col-span-1 lg:col-span-2">
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                                                                    <Calendar className="w-4 h-4 text-slate-300" />
+                                                                    {customer.joinDate}
+                                                                </div>
+                                                                {customer.lastInteraction && (
+                                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 w-fit">
+                                                                        <Clock className="w-3 h-3" />
+                                                                        Vis: {new Date(customer.lastInteraction).toLocaleDateString()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Orders */}
+                                                        <div className="col-span-1 lg:col-span-1 flex justify-center">
+                                                            <div className="flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100 rounded-xl w-14 h-12 flex-col shadow-sm group-hover:bg-blue-500 group-hover:text-white group-hover:border-blue-500 transition-colors">
+                                                                <span className="text-lg font-black">{customer.totalOrders}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Spent */}
+                                                        <div className="col-span-1 lg:col-span-1 flex justify-center">
+                                                            <div className="flex items-center justify-center bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl w-full h-12 shadow-sm px-2 group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-colors">
+                                                                <span className="text-xs font-bold mr-0.5">SAR</span>
+                                                                <span className="text-sm font-black">{customer.totalSpent.toFixed(0)}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Actions */}
+                                                        <div className="col-span-1 lg:col-span-2 flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
+                                                            <button
+                                                                onClick={() => setSelectedCustomer(customer)}
+                                                                className="p-2.5 text-emerald-600 hover:text-white hover:bg-emerald-500 rounded-xl transition-all bg-emerald-50 border border-emerald-100 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 group/history"
+                                                                title="View Order History ($)"
+                                                            >
+                                                                <DollarSign className="w-4 h-4 group-hover/history:scale-125 transition-transform" />
+                                                            </button>
+                                                            <button onClick={() => openEditCustomer(customer)} className="p-2.5 text-slate-500 hover:text-white hover:bg-orange-500 rounded-xl transition-all bg-white border border-slate-100 hover:border-orange-500 hover:shadow-lg hover:shadow-orange-500/20" title="Edit User">
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteCustomer(customer.id)} className="p-2.5 text-slate-500 hover:text-white hover:bg-red-500 rounded-xl transition-all bg-white border border-slate-100 hover:border-red-500 hover:shadow-lg hover:shadow-red-500/20" title="Delete User">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {filteredCustomers.length === 0 && (
+                                                    <div className="p-16 text-center">
+                                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200 border-dashed">
+                                                            <Search className="w-6 h-6 text-slate-300" />
+                                                        </div>
+                                                        <p className="text-slate-500 font-medium">No users found matching your search.</p>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-8 space-y-8 animate-fade-in-up">
+                                            {isLoadingCampaigns ? (
+                                                <div className="flex flex-col items-center justify-center p-20 space-y-4">
+                                                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                                                    <p className="text-slate-500 font-bold animate-pulse">Loading campaign stats...</p>
+                                                </div>
+                                            ) : campaigns.length === 0 ? (
+                                                <div className="text-center py-20 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                                                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
+                                                        <Bot className="w-10 h-10 text-slate-300" />
+                                                    </div>
+                                                    <h4 className="text-lg font-black text-slate-800">No Campaigns Yet</h4>
+                                                    <p className="text-sm text-slate-500 font-medium mt-2 max-w-sm mx-auto">
+                                                        Start a promotional campaign from the "Discounts" section to see results here.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 gap-6">
+                                                    {campaigns.map((camp) => (
+                                                        <div key={camp.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500 overflow-hidden group">
+                                                            <div className="p-8">
+                                                                <div className="flex flex-col lg:flex-row justify-between items-start gap-6 mb-8">
+                                                                    <div className="flex-1">
+                                                                        <div className="flex items-center gap-3 mb-2">
+                                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${camp.status === 'Active' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                                                {camp.status}
+                                                                            </span>
+                                                                            <span className="text-xs font-bold text-slate-400">Sent on {new Date(camp.created_at).toLocaleDateString()}</span>
+                                                                        </div>
+                                                                        <h4 className="text-xl font-black text-slate-800 font-display group-hover:text-primary transition-colors">{camp.name}</h4>
+                                                                        <p className="text-sm text-slate-500 font-medium mt-2 line-clamp-2 italic">"{camp.message}"</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl self-start lg:self-center border border-slate-100">
+                                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Target:</span>
+                                                                        <span className="bg-white px-4 py-1.5 rounded-xl text-xs font-black text-slate-700 shadow-sm">
+                                                                            {camp.audience.replace('_', ' ')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                    {[
+                                                                        { label: 'Reached', val: camp.sent_count, icon: Users, color: 'blue' },
+                                                                        { label: 'Opened', val: camp.read_count, icon: Mail, color: 'emerald', percent: Math.round((camp.read_count / (camp.sent_count || 1)) * 100) },
+                                                                        { label: 'Clicked', val: camp.click_count, icon: Zap, color: 'orange', percent: Math.round((camp.click_count / (camp.sent_count || 1)) * 100) },
+                                                                        { label: 'Responded', val: camp.respond_count, icon: Bot, color: 'purple' }
+                                                                    ].map((stat) => (
+                                                                        <div key={stat.label} className={`p-4 rounded-2xl bg-${stat.color}-50/50 border border-${stat.color}-100/50 flex flex-col`}>
+                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                <stat.icon className={`w-4 h-4 text-${stat.color}-500 opacity-60`} />
+                                                                                {stat.percent !== undefined && (
+                                                                                    <span className={`text-[10px] font-black text-${stat.color}-600 bg-white px-2 py-0.5 rounded-md`}>{stat.percent}%</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</span>
+                                                                            <span className={`text-2xl font-black text-${stat.color}-700 font-display mt-1`}>{stat.val || 0}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                <div className="mt-8 space-y-2">
+                                                                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                                        <span>Engagement Progress</span>
+                                                                        <span>{Math.round(((camp.read_count || 0) / (camp.sent_count || 1)) * 100)}% Conversion</span>
+                                                                    </div>
+                                                                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                                                                        <div
+                                                                            className="h-full bg-emerald-500 shadow-lg shadow-emerald-500/20 transition-all duration-1000 ease-out"
+                                                                            style={{ width: `${(camp.read_count / (camp.sent_count || 1)) * 100}%` }}
+                                                                        ></div>
+                                                                        <div
+                                                                            className="h-full bg-orange-400 shadow-lg shadow-orange-500/20 transition-all duration-1000 ease-out delay-200"
+                                                                            style={{ width: `${(camp.click_count / (camp.sent_count || 1)) * 100}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                    <div className="flex gap-4 mt-2">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm animate-pulse"></div>
+                                                                            <span className="text-[9px] font-bold text-slate-400 uppercase">Read</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="w-2 h-2 rounded-full bg-orange-400 shadow-sm animate-pulse"></div>
+                                                                            <span className="text-[9px] font-bold text-slate-400 uppercase">Clicked</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
 
                         {/* TAB CONTENT: STAFF MANAGEMENT */}
                         {activeTab === 'STAFF' && selectedBranch && (
-                            <>
+                            <div className="animate-fade-in-up">
                                 {!selectedStaff ? (
-                                    <div className="space-y-8 animate-fade-in-up">
+                                    <div className="space-y-8">
                                         <div className="flex justify-between items-center">
                                             <div>
                                                 <h2 className="text-2xl font-extrabold text-slate-800 font-display">Staff Members</h2>
@@ -2832,143 +2950,34 @@ const BranchManager: React.FC<BranchManagerProps> = ({
                                         onClose={() => setSelectedStaff(null)}
                                         onUpdate={async (updated) => {
                                             if (!selectedBranch) return;
+                                            const updatedStaff = (selectedBranch.staff || []).map(s => s.id === updated.id ? updated : s);
 
-                                            // 1. Persist to Supabase
-                                            const { error } = await supabase
-                                                .from('staff_members')
-                                                .update({
-                                                    name: updated.name,
-                                                    role: updated.role,
-                                                    email: updated.email,
-                                                    phone: updated.phone,
-                                                    status: updated.status,
-                                                    base_salary: updated.financials.salary
-                                                })
-                                                .eq('id', updated.id);
+                                            // 1. Update State
+                                            const updatedBranch = { ...selectedBranch, staff: updatedStaff };
+                                            setBranchesList(prev => prev.map(b => b.id === selectedBranch.id ? updatedBranch : b));
 
-                                            if (error) {
-                                                console.error("Error updating staff:", error);
-                                                alert("Failed to save changes to database.");
-                                                return;
-                                            }
-
-                                            // 2. Local Update
-                                            const updatedStaff = selectedBranch.staff.map(s => s.id === updated.id ? updated : s);
-                                            if (onUpdateBranch) onUpdateBranch({ ...selectedBranch, staff: updatedStaff });
-                                            setSelectedStaff(updated);
-
-                                            // 3. Sync & Log
+                                            // 2. Sync & Log
                                             syncService.broadcastStaffUpdate(selectedBranch.id, updatedStaff);
-                                            logAction('UPDATE', `Updated profile of staff member: ${updated.name}`);
+                                            logAction('UPDATE', `Updated staff details: ${updated.name}`);
                                         }}
-                                        onDelete={async (id) => {
+                                        onDelete={(staffId) => {
                                             if (!selectedBranch) return;
+                                            const updatedStaff = (selectedBranch.staff || []).filter(s => s.id !== staffId);
 
-                                            // 1. Persist to Supabase
-                                            const { error } = await supabase
-                                                .from('staff_members')
-                                                .delete()
-                                                .eq('id', id);
-
-                                            if (error) {
-                                                console.error("Error deleting staff:", error);
-                                                alert("Failed to delete staff from database.");
-                                                return;
-                                            }
-
-                                            // 2. Local Update
-                                            const staffName = selectedBranch.staff.find(s => s.id === id)?.name || id;
-                                            const updatedStaff = selectedBranch.staff.filter(s => s.id !== id);
-                                            if (onUpdateBranch) onUpdateBranch({ ...selectedBranch, staff: updatedStaff });
+                                            // 1. Update State
+                                            const updatedBranch = { ...selectedBranch, staff: updatedStaff };
                                             setSelectedStaff(null);
+                                            setBranchesList(prev => prev.map(b => b.id === selectedBranch.id ? updatedBranch : b));
 
-                                            // 3. Sync & Log
+                                            // 2. Sync & Log
                                             syncService.broadcastStaffUpdate(selectedBranch.id, updatedStaff);
-                                            logAction('DELETE', `Removed staff member: ${staffName}`);
+                                            logAction('DELETE', `Removed staff member: ${staffId}`);
                                         }}
                                     />
                                 )}
-                            </>
+                            </div>
                         )}
                     </>
-                )}
-                {/* --- BULK UPLOAD MODAL --- */}
-                {isUploadModalOpen && createPortal(
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in-up">
-                        <div className="bg-white rounded-[2rem] p-8 w-full max-w-lg shadow-2xl border border-slate-100 animate-pop">
-                            <div className="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 className="text-xl font-extrabold text-slate-800 font-display">Bulk Menu Upload</h3>
-                                    <p className="text-slate-500 font-medium text-sm">Replace current menu with an Excel file</p>
-                                </div>
-                                <button onClick={() => setIsUploadModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-full transition-colors text-slate-400 hover:text-red-500">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="border-2 border-dashed border-blue-200 rounded-3xl p-10 text-center hover:border-primary hover:bg-blue-50/50 transition-all bg-slate-50 cursor-pointer relative group mb-6">
-                                {uploadStatus === 'idle' || uploadStatus === 'error' ? (
-                                    <>
-                                        <input
-                                            type="file"
-                                            accept=".xlsx, .xls, .csv"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                            onChange={handleBulkUpload}
-                                        />
-                                        <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100 group-hover:scale-110 transition-transform">
-                                            <Upload className="w-8 h-8 text-primary" />
-                                        </div>
-                                        <p className="text-sm font-extrabold text-slate-700">Select Excel/CSV File</p>
-                                        <p className="text-xs text-slate-400 mt-2 font-medium">Mapped Columns: Category, Name EN, Name AR, Price</p>
-                                        {uploadStatus === 'error' && (
-                                            <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl">
-                                                <p className="text-xs text-red-600 font-bold flex items-center justify-center gap-2">
-                                                    <XCircle className="w-4 h-4" /> {errorMessage}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="flex flex-col items-center py-6">
-                                        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-                                        <p className="text-sm font-black text-slate-800 uppercase tracking-widest">
-                                            {uploadStatus === 'parsing' ? 'Reading Sheet...' :
-                                                uploadStatus === 'syncing' ? 'Syncing to Supabase...' :
-                                                    'Finalizing...'}
-                                        </p>
-                                        <div className="mt-4 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                                            <div className="h-full bg-primary animate-progress"></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {uploadStatus === 'success' && (
-                                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-4 animate-fade-in-up">
-                                    <div className="bg-emerald-500 p-2 rounded-xl shadow-lg shadow-emerald-500/20">
-                                        <CheckCircle2 className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-extrabold text-emerald-800">Upload Successful!</p>
-                                        <p className="text-[10px] font-bold text-emerald-600 opacity-90 mt-1">
-                                            Detected {detectedCategories.length} categories: {detectedCategories.join(', ')}
-                                        </p>
-                                        <p className="text-[10px] font-medium text-emerald-600/70 mt-0.5">Refreshing dashboard...</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="mt-8 flex justify-end">
-                                <button
-                                    onClick={() => setIsUploadModalOpen(false)}
-                                    className="px-6 py-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all font-bold text-sm"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
                 )}
             </div>
         );

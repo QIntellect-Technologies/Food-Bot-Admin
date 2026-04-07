@@ -130,7 +130,8 @@ const DiscountManager: React.FC<DiscountManagerProps> = ({ branches }) => {
                     audience: payload.target_audience,
                     message: notificationMessage,
                     type: notificationChannel,
-                    branchId: payload.branch_id
+                    branchId: payload.branch_id,
+                    campaignName: payload.name
                 });
                 console.log(`✅ Campaign notification queued via ${notificationChannel}`);
             } catch (err) {
