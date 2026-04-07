@@ -510,7 +510,8 @@ app.get('/menu', (req, res) => res.redirect('/menu/'));
 app.use('/menu', express.static(publicMenuDist));
 
 // SPA Fallback for /menu and all sub-routes
-app.get(/^\/menu(?:\/.*)?$/, (req, res) => {
+// Standard named parameter catch-all for path-to-regexp v6+!
+app.get('/menu/:path*', (req, res) => {
     res.sendFile(path.join(publicMenuDist, 'index.html'));
 });
 
