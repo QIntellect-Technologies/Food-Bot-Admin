@@ -502,19 +502,19 @@ app.get('/config.js', (req, res) => {
 const publicMenuDist = path.join(__dirname, '../public-menu/dist');
 const adminPanelDist = path.join(__dirname, '../dist');
 
-// 1. Serve Admin Panel at /admin
-app.use('/admin', express.static(adminPanelDist));
-app.get(/^\/admin($|\/.*)/, (req, res) => {
-    res.sendFile(path.join(adminPanelDist, 'index.html'));
+// 1. Serve Public Menu at /menu
+app.use('/menu', express.static(publicMenuDist));
+app.get(/^\/menu($|\/.*)/, (req, res) => {
+    res.sendFile(path.join(publicMenuDist, 'index.html'));
 });
 
-// 2. Serve Public Menu at /
-app.use(express.static(publicMenuDist));
+// 2. Serve Admin Panel at root /
+app.use(express.static(adminPanelDist));
 
-// 3. Catch-all to serve public menu index.html (SPA support)
+// 3. Catch-all to serve Admin Panel index.html (SPA support)
 app.use((req, res) => {
-    if (require('fs').existsSync(path.join(publicMenuDist, 'index.html'))) {
-        res.sendFile(path.join(publicMenuDist, 'index.html'));
+    if (require('fs').existsSync(path.join(adminPanelDist, 'index.html'))) {
+        res.sendFile(path.join(adminPanelDist, 'index.html'));
     } else {
         res.status(404).send('Frontend not built yet. Run npm run build first.');
     }
