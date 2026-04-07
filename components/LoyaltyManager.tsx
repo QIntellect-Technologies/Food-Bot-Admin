@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LoyaltyRule } from '../types';
+import { LoyaltyRule, UserRole } from '../types';
 import { Plus, Gift, Award, Users, Trash2, X, Search, Filter, TrendingUp, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,7 +38,7 @@ const LoyaltyManager: React.FC = () => {
 
     useEffect(() => {
         fetchRules();
-        if (userRole === 'MAIN_ADMIN') fetchBranches();
+        if (userRole === UserRole.MAIN_ADMIN) fetchBranches();
     }, [loggedInBranchId, selectedBranchId]); // Refetch if filter changes
 
     useEffect(() => {
@@ -98,9 +98,8 @@ const LoyaltyManager: React.FC = () => {
 
         const payload = {
             ...ruleForm,
-            branch_id: loggedInBranchId || (selectedBranchId !== 'ALL' ? selectedBranchId : null) // Default to global if ALL
+            branch_id: loggedInBranchId || (selectedBranchId !== 'ALL' ? selectedBranchId : undefined) // Default to global if ALL
         };
-
         if (editingRuleId) {
             const { error } = await supabase.from('loyalty_rules').update(payload).eq('id', editingRuleId);
             if (error) alert(error.message);
@@ -163,13 +162,13 @@ const LoyaltyManager: React.FC = () => {
                         </div>
 
                         {/* Branch Selection (Only for Main Admin) */}
-                        {userRole === 'MAIN_ADMIN' && (
+                        {userRole === UserRole.MAIN_ADMIN && (
                             <div className="space-y-3">
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Applicable Branch</label>
                                 <select
                                     className="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none font-bold text-slate-700 appearance-none cursor-pointer"
                                     value={ruleForm.branch_id || (selectedBranchId !== 'ALL' ? selectedBranchId : '')}
-                                    onChange={(e: any) => setRuleForm({ ...ruleForm, branch_id: e.target.value || null })}
+                                    onChange={(e: any) => setRuleForm({ ...ruleForm, branch_id: e.target.value || undefined })}
                                 >
                                     <option value="">Global (All Branches)</option>
                                     {branches.map(b => <option key={b.id} value={b.id}>{b.name_en}</option>)}
@@ -190,7 +189,7 @@ const LoyaltyManager: React.FC = () => {
                                     <select
                                         className="w-1/3 p-4 bg-white rounded-2xl text-xs font-bold border-none shadow-sm"
                                         value={ruleForm.condition_type}
-                                        onChange={(e: any) => setRuleForm({ ...ruleForm, condition_type: e.target.value })}
+                                        onChange={(e) => setRuleForm({ ...ruleForm, condition_type: e.target.value as any })}
                                     >
                                         <option value="SPEND_AMOUNT">Spends</option>
                                         <option value="ORDER_COUNT">Orders</option>
@@ -215,7 +214,7 @@ const LoyaltyManager: React.FC = () => {
                                     <select
                                         className="w-2/3 p-4 bg-white rounded-2xl text-xs font-bold border-none shadow-sm"
                                         value={ruleForm.reward_type}
-                                        onChange={(e: any) => setRuleForm({ ...ruleForm, reward_type: e.target.value })}
+                                        onChange={(e) => setRuleForm({ ...ruleForm, reward_type: e.target.value as any })}
                                     >
                                         <option value="POINTS">Points</option>
                                         <option value="DISCOUNT_PERCENT">% Discount</option>
@@ -307,7 +306,7 @@ const LoyaltyManager: React.FC = () => {
                     <div className="flex justify-between items-center">
                         {/* Branch Filtering for Main Admin logic could go here */}
                         <div className="flex items-center gap-2">
-                            {userRole === 'MAIN_ADMIN' && (
+                            {userRole === UserRole.MAIN_ADMIN && (
                                 <select
                                     className="p-3 bg-white rounded-xl text-xs font-bold border border-slate-100 outline-none text-slate-600"
                                     value={selectedBranchId}
@@ -354,8 +353,8 @@ const LoyaltyManager: React.FC = () => {
                                         </div>
                                         <h3 className="text-xl font-black text-slate-800 font-display leading-tight">{rule.name}</h3>
                                         {/* Branch Badge */}
-                                        {userRole === 'MAIN_ADMIN' && !rule.branch_id && <span className="inline-block mt-2 px-2 py-1 bg-slate-100 rounded text-[9px] font-bold text-slate-500 uppercase">Global Rule</span>}
-                                        {userRole === 'MAIN_ADMIN' && rule.branch_id && <span className="inline-block mt-2 px-2 py-1 bg-blue-50 rounded text-[9px] font-bold text-blue-500 uppercase">Branch Specific</span>}
+                                        {userRole === UserRole.MAIN_ADMIN && !rule.branch_id && <span className="inline-block mt-2 px-2 py-1 bg-slate-100 rounded text-[9px] font-bold text-slate-500 uppercase">Global Rule</span>}
+                                        {userRole === UserRole.MAIN_ADMIN && rule.branch_id && <span className="inline-block mt-2 px-2 py-1 bg-blue-50 rounded text-[9px] font-bold text-blue-500 uppercase">Branch Specific</span>}
                                     </div>
 
                                     <div className="bg-slate-50 rounded-2xl p-4 space-y-2 mb-6">

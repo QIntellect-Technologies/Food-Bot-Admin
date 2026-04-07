@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Branch } from '../types';
 import { Plus, Tag, Calendar, Users, Percent, DollarSign, Trash2, Edit, X, Save, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 export interface Discount {
     id: string;
@@ -122,9 +123,19 @@ const DiscountManager: React.FC<DiscountManagerProps> = ({ branches }) => {
             if (error) alert(error.message);
         }
 
-        // If notification enabled, trigger the background process (mocking here)
+        // If notification enabled, trigger the background process
         if (sendNotification) {
-            console.log(`Sending ${notificationChannel} to ${payload.target_audience}: ${notificationMessage}`);
+            try {
+                await axios.post('/api/send-campaign', {
+                    audience: payload.target_audience,
+                    message: notificationMessage,
+                    type: notificationChannel,
+                    branchId: payload.branch_id
+                });
+                console.log(`✅ Campaign notification queued via ${notificationChannel}`);
+            } catch (err) {
+                console.error('❌ Failed to send campaign notification:', err);
+            }
         }
 
         setIsCreating(false);
@@ -504,21 +515,14 @@ const DiscountManager: React.FC<DiscountManagerProps> = ({ branches }) => {
 
                                     {sendNotification && (
                                         <div className="space-y-6 animate-pop">
-                                            <div className="grid grid-cols-3 gap-4">
-                                                {[
-                                                    { id: 'WHATSAPP', label: 'WhatsApp', icon: '📱' },
-                                                    { id: 'VOICE', label: 'Voice AI', icon: '🎙️' },
-                                                    { id: 'SMS', label: 'SMS', icon: '💬' }
-                                                ].map(ch => (
-                                                    <button
-                                                        key={ch.id}
-                                                        onClick={() => setNotificationChannel(ch.id as any)}
-                                                        className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${notificationChannel === ch.id ? 'bg-primary text-white border-primary shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}
-                                                    >
-                                                        <span className="text-xl">{ch.icon}</span>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest">{ch.label}</span>
-                                                    </button>
-                                                ))}
+                                            <div className="bg-primary/5 p-6 rounded-2xl border-2 border-primary/20 flex items-center gap-4 animate-pop">
+                                                <div className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center text-2xl shadow-lg">
+                                                    📱
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-black text-slate-800 uppercase tracking-tight">WhatsApp Channel</div>
+                                                    <div className="text-[10px] text-primary font-bold">Standard automated broadcast enabled</div>
+                                                </div>
                                             </div>
 
                                             <div className="space-y-2">
@@ -581,7 +585,7 @@ const DiscountManager: React.FC<DiscountManagerProps> = ({ branches }) => {
                             <div>
                                 <h5 className="text-sm font-black text-amber-800 uppercase tracking-tight">System Notice</h5>
                                 <p className="text-xs text-amber-700 font-medium mt-1 leading-relaxed">
-                                    Campaigns are automatically broadcasted to the selected audience via Voice AI and WhatsApp Bot upon activation.
+                                    Campaigns are automatically broadcasted to the selected audience via WhatsApp Bot upon activation.
                                 </p>
                             </div>
                         </div>

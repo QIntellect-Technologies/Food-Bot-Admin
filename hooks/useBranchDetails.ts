@@ -242,7 +242,15 @@ export const useBranchDetails = (branchId?: string) => {
 
             setLiveOrders(currentLiveOrders);
             setAllOrders(dbOrders || []);
-            setCustomers(Array.from(customerMap.values()));
+
+            // Sort customers: Latest interaction (or join date) first
+            const sortedCustomers = Array.from(customerMap.values()).sort((a, b) => {
+                const dateA = new Date(a.lastInteraction || a.joinDate).getTime();
+                const dateB = new Date(b.lastInteraction || b.joinDate).getTime();
+                return dateB - dateA;
+            });
+
+            setCustomers(sortedCustomers);
             setAuditLogs(dbLogs || []);
 
         } catch (error) {

@@ -5,6 +5,7 @@ const path = require('path');
 const FormData = require('form-data');
 const dotenv = require('dotenv');
 const botEngine = require('./bot/engine');
+const { supabase } = require('./lib/supabase');
 
 // Try to load .env from current dir AND from the script's dir for Docker compatibility
 dotenv.config();
@@ -360,6 +361,69 @@ app.post('/api/send-receipt', async (req, res) => {
     } catch (error) {
         console.error('❌ Error sending receipt:', error.response ? error.response.data : error.message);
         res.status(500).send('WhatsApp delivery failed');
+    }
+});
+
+// Promotional Campaign API
+app.post('/api/send-campaign', async (req, res) => {
+    const { audience, message, type, branchId } = req.body;
+
+    if (!message || !audience) {
+        return res.status(400).send('Missing campaign data');
+    }
+
+    console.log(`📣 BROADCAST START: Target=${audience}, Channel=${type}`);
+
+    try {
+        let targets = [];
+
+        // 1. Resolve Audience to Phone Numbers
+        if (audience === 'ALL_USERS') {
+            const { data } = await supabase.from('profiles').select('phone').eq('role', 'customer');
+            targets = data || [];
+        } else if (audience === 'NEW_USERS') {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data } = await supabase.from('profiles').select('phone').eq('role', 'customer').gte('created_at', sevenDaysAgo);
+            targets = data || [];
+        } else if (audience.startsWith('INACTIVE_')) {
+            const days = parseInt(audience.split('_')[1]);
+            const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+            const { data } = await supabase.from('customers').select('phone').lt('last_interaction', cutoff);
+            targets = data || [];
+        } else if (audience.startsWith('USER:')) {
+            const userId = audience.split(':')[1];
+            const { data } = await supabase.from('profiles').select('phone').eq('id', userId).single();
+            if (data) targets = [data];
+        }
+
+        const phoneNumbers = [...new Set(targets.map(t => t.phone).filter(p => !!p))];
+        console.log(`👥 Found ${phoneNumbers.length} unique target(s)`);
+
+        // 2. Send WhatsApp Messages (Meta API)
+        const url = `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+        // Use a loop with small delay to avoid rate limits (simplified)
+        for (const phone of phoneNumbers) {
+            try {
+                await axios.post(url, {
+                    messaging_product: 'whatsapp',
+                    to: phone,
+                    type: 'text',
+                    text: { body: message }
+                }, { headers: { 'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' } });
+
+                console.log(`✅ Campaign msg sent to ${phone}`);
+                // Basic throttle
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+                console.error(`❌ Failed to send to ${phone}:`, err.response?.data || err.message);
+            }
+        }
+
+        res.status(200).send({ success: true, count: phoneNumbers.length });
+    } catch (error) {
+        console.error('❌ Campaign broadcast failed:', error);
+        res.status(500).send('Broadcast failed');
     }
 });
 app.get('/config.js', (req, res) => {

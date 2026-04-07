@@ -13,6 +13,7 @@ import { useOrder } from './hooks/useOrder'; // NEW
 import { useLoyalty } from './hooks/useLoyalty'; // NEW
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Search, UtensilsCrossed, ShoppingBag, History, Star } from 'lucide-react'; // Added Star icon
+import { supabase } from './lib/supabase';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -23,7 +24,7 @@ const containerVariants: Variants = {
     }
   }
 };
-
+// ... (omitting unchanged itemVariants) ...
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -41,6 +42,56 @@ const App: React.FC = () => {
   // Support dynamic branch selection via URL (e.g., ?branch_id=123)
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const branchIdParam = searchParams.get('branch_id');
+
+  // Auto-Registration Logic for WhatsApp Users
+  React.useEffect(() => {
+    const waPhone = searchParams.get('wa_phone');
+    const waName = searchParams.get('wa_name');
+
+    if (waPhone && waName) {
+      const registerUser = async () => {
+        const phoneStr = waPhone.replace(/\s+/g, '').replace('+', '');
+
+        try {
+          // 1. Ensure Profile exists
+          const { data: profile } = await supabase
+            .from('profiles')
+            .upsert({
+              phone: phoneStr,
+              name: waName,
+              role: 'customer'
+            }, { onConflict: 'phone' })
+            .select()
+            .single();
+
+          if (profile) {
+            // 2. Ensure Customer record exists
+            const { data: existingCustomer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('phone', phoneStr)
+              .maybeSingle();
+
+            if (!existingCustomer) {
+              await supabase.from('customers').insert({
+                id: profile.id,
+                name: waName,
+                phone: phoneStr,
+                email: `wa-${phoneStr}@foodboot.com`,
+                total_orders: 0,
+                total_spent: 0,
+                join_date: new Date().toISOString().split('T')[0]
+              });
+              console.log('✅ Auto-registered WhatsApp user:', waName);
+            }
+          }
+        } catch (err) {
+          console.error('❌ Auto-registration failed:', err);
+        }
+      };
+      registerUser();
+    }
+  }, [searchParams]);
 
   const { branch, categories, items, reviewStats, loading } = usePublicMenu(branchIdParam || undefined);
   const { calculatePotentialPoints, getCustomerPoints, calculateApplicableDiscounts, activeDeals, loading: loyaltyLoading } = useLoyalty(branch?.id);
