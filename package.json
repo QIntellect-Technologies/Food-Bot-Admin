@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:admin\" \"npm run dev:public\" \"npm run dev:server\"",
     "dev:admin": "vite",
-    "dev:public": "npm run dev --workspace=public-menu",
+    "dev:public": "cd public-menu && npm run dev",
     "dev:server": "node server/server.js",
     "build": "npm install --include=dev && npm run build --workspaces && vite build",
     "start": "node server/server.js"
