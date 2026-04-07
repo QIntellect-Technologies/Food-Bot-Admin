@@ -37,6 +37,8 @@ COPY --from=builder /app/public-menu/dist ./public-menu/dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
+# Copy .env file
+COPY --from=builder /app/.env* ./
 
 # Expose port
 EXPOSE 3000
