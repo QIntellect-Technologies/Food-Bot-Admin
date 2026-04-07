@@ -509,8 +509,8 @@ app.get('/menu', (req, res) => res.redirect('/menu/'));
 // Serve Static Assets from /menu/
 app.use('/menu', express.static(publicMenuDist));
 
-// SPA Fallback for /menu/* routes
-app.get('/menu*', (req, res) => {
+// SPA Fallback for /menu and all sub-routes
+app.get(/^\/menu(?:\/.*)?$/, (req, res) => {
     res.sendFile(path.join(publicMenuDist, 'index.html'));
 });
 
