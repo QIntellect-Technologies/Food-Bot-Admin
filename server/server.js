@@ -502,9 +502,15 @@ app.get('/config.js', (req, res) => {
 const publicMenuDist = path.join(__dirname, '../public-menu/dist');
 const adminPanelDist = path.join(__dirname, '../dist');
 
-// 1. Serve Public Menu at /menu
+// 1. Unified Route Handling for /menu
+// If accessed as /menu (no slash), redirect to /menu/ for correct relative asset loading
+app.get('/menu', (req, res) => res.redirect('/menu/'));
+
+// Serve Static Assets from /menu/
 app.use('/menu', express.static(publicMenuDist));
-app.get(/^\/menu($|\/.*)/, (req, res) => {
+
+// SPA Fallback for /menu/* routes
+app.get('/menu*', (req, res) => {
     res.sendFile(path.join(publicMenuDist, 'index.html'));
 });
 
