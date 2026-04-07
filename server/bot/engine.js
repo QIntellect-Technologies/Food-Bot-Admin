@@ -27,7 +27,7 @@ async function processMessage(from, text, name = 'Valued Customer') {
 
     // Helper to generate dynamic link with user data
     const getLink = (branchId) => {
-        const baseUrl = "https://joana-web-whastapp-bot-production.up.railway.app/";
+        const baseUrl = "https://joana-web-whastapp-bot-production.up.railway.app/menu";
         const params = new URLSearchParams({
             branch_id: branchId,
             wa_name: name,
