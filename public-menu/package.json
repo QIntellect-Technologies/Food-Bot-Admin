@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "start": "vite preview --port $PORT --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
