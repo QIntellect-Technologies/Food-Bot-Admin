@@ -7,8 +7,9 @@ const dotenv = require('dotenv');
 const botEngine = require('./bot/engine');
 const { supabase } = require('./lib/supabase');
 
-// Try to load .env from current dir AND from the script's dir for Docker compatibility
-dotenv.config();
+// Provide multiple explicit paths for Docker and Local fallback
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
