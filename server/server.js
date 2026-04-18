@@ -503,8 +503,15 @@ const publicMenuDist = path.join(__dirname, '../public-menu/dist');
 const adminPanelDist = path.join(__dirname, '../dist');
 
 // 1. Unified Route Handling for /menu
-// If accessed as /menu (no slash), redirect to /menu/ for correct relative asset loading
-app.get('/menu', (req, res) => res.redirect('/menu/'));
+// If accessed as exactly /menu (no slash), redirect to /menu/ for correct relative asset loading
+app.use((req, res, next) => {
+    if (req.originalUrl === '/menu' || req.originalUrl.startsWith('/menu?')) {
+        const queryIdx = req.originalUrl.indexOf('?');
+        const queryStr = queryIdx !== -1 ? req.originalUrl.substring(queryIdx) : '';
+        return res.redirect(301, `/menu/${queryStr}`);
+    }
+    next();
+});
 
 // Public Menu - serve static files and SPA fallback at /menu/
 // app.use handles all sub-paths without any wildcard syntax
