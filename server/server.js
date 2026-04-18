@@ -502,7 +502,11 @@ app.get('/config.js', (req, res) => {
 const publicMenuDist = path.join(__dirname, '../public-menu/dist');
 const adminPanelDist = path.join(__dirname, '../dist');
 
-// 1. Public Menu - serve static files and SPA fallback at /menu
+// 1. Unified Route Handling for /menu
+// If accessed as /menu (no slash), redirect to /menu/ for correct relative asset loading
+app.get('/menu', (req, res) => res.redirect('/menu/'));
+
+// Public Menu - serve static files and SPA fallback at /menu/
 // app.use handles all sub-paths without any wildcard syntax
 app.use('/menu', express.static(publicMenuDist));
 
