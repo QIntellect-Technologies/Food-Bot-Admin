@@ -502,16 +502,13 @@ app.get('/config.js', (req, res) => {
 const publicMenuDist = path.join(__dirname, '../public-menu/dist');
 const adminPanelDist = path.join(__dirname, '../dist');
 
-// 1. Unified Route Handling for /menu
-// If accessed as /menu (no slash), redirect to /menu/ for correct relative asset loading
-app.get('/menu', (req, res) => res.redirect('/menu/'));
-
-// Serve Static Assets from /menu/
+// 1. Public Menu - serve static files and SPA fallback at /menu
+// app.use handles all sub-paths without any wildcard syntax
 app.use('/menu', express.static(publicMenuDist));
 
-// SPA Fallback for /menu and all sub-routes
-// Standard named parameter catch-all for path-to-regexp v6+!
-app.get('/menu/:path*', (req, res) => {
+// SPA fallback: serve index.html for any /menu sub-route not matched by static files
+// Using app.use avoids ALL path-to-regexp wildcard issues
+app.use('/menu', (req, res) => {
     res.sendFile(path.join(publicMenuDist, 'index.html'));
 });
 
