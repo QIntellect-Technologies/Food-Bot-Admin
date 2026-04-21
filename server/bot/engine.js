@@ -46,6 +46,27 @@ async function processMessage(from, text, name = 'Valued Customer') {
         return ["We're sorry to hear that. 😞 Which item did you not like? Please let us know so we can improve."];
     }
 
+    if (lowerText === 'order_web') {
+        return [
+            {
+                type: 'button',
+                body: "Please select a branch to explore our menu and order directly from our website:",
+                buttons: [
+                    { id: 'branch_1', title: 'Downtown Riyadh' },
+                    { id: 'branch_2', title: 'Jeddah Corniche' },
+                    { id: 'branch_3', title: 'Dammam Seafront' }
+                ]
+            }
+        ];
+    }
+
+    if (lowerText === 'order_whatsapp') {
+        return [
+            "Great! To continue ordering via our WhatsApp chatbot, please click the link below to chat with our dedicated number:",
+            "👉 https://wa.me/923217780623?text=Hi"
+        ];
+    }
+
     if (lowerText === 'branch_1') {
         return [
             `📍 *Downtown Riyadh*\nGreat choice, ${name}! You can view the menu and order here:\n${getLink('550e8400-e29b-41d4-a716-446655440001')}`,
@@ -80,7 +101,7 @@ async function processMessage(from, text, name = 'Valued Customer') {
                     - Current Context: ${session.step} (Use this to understand if the user is giving feedback).
                     - Your task is to greet customers and guide them to order.
                     - IMPORTANT: Do NOT give manual ordering instructions like "Visit our website" or "Select from a dropdown". 
-                    - ALWAYS tell the user to "Simply select your branch below to start your order instantly."
+                    - ALWAYS tell the user to "How would you like to order today? Choose to order via our Web Menu or directly here on our WhatsApp Chatbot:"
                     
                     - FEEDBACK HANDLING:
                       - IF Context is 'FEEDBACK_POSITIVE': The user just said they are satisfied. They are likely naming an item they liked. Acknowledge it with a very warm "Thank you! I'm so glad you enjoyed the [Item]! We'll let our chefs know! 🍔🌟". Follow with "See you soon at JOANA!".
@@ -115,11 +136,10 @@ async function processMessage(from, text, name = 'Valued Customer') {
                 aiResponse,
                 {
                     type: 'button',
-                    body: "Please select a branch to explore our menu and order directly from our website:",
+                    body: "How would you like to order today? Choose to order via our Web Menu or directly here on our WhatsApp Chatbot:",
                     buttons: [
-                        { id: 'branch_1', title: 'Downtown Riyadh' },
-                        { id: 'branch_2', title: 'Jeddah Corniche' },
-                        { id: 'branch_3', title: 'Dammam Seafront' }
+                        { id: 'order_web', title: 'Via Web' },
+                        { id: 'order_whatsapp', title: 'Via WhatsApp' }
                     ]
                 }
             ];
@@ -138,11 +158,10 @@ async function processMessage(from, text, name = 'Valued Customer') {
             `👋 Welcome to JOANA, ${name}! 🍔\nExperience the future of dining with our AI-curated menu of premium culinary delights.`,
             {
                 type: 'button',
-                body: "Please select a branch to explore our menu and order directly from our website:",
+                body: "How would you like to order today? Choose to order via our Web Menu or directly here on our WhatsApp Chatbot:",
                 buttons: [
-                    { id: 'branch_1', title: 'Downtown Riyadh' },
-                    { id: 'branch_2', title: 'Jeddah Corniche' },
-                    { id: 'branch_3', title: 'Dammam Seafront' }
+                    { id: 'order_web', title: 'Via Web' },
+                    { id: 'order_whatsapp', title: 'Via WhatsApp' }
                 ]
             }
         ];
